@@ -1,16 +1,28 @@
-Frequently Asked Questions
+Company: Demo Store
+Website: https://demostore.example.com
 
-Q: What is your return policy?
-A: You can return any item within 30 days of purchase for a full refund, as long as it's in original condition.
+## Products
+We sell electronics, clothing, and home goods. Browse our catalog at demostore.example.com/shop.
 
-Q: How long does shipping take?
-A: Standard shipping takes 3-5 business days. Express shipping (available at checkout) takes 1-2 business days.
+## Shipping
+- Standard shipping: 3-5 business days, free on orders over $50
+- Express shipping: 1-2 business days, $9.99
+- International shipping: 7-14 business days, rates vary by country
+- We ship to most countries worldwide
 
-Q: Do you ship internationally?
-A: Yes, we ship to most countries. International shipping typically takes 7-14 business days.
+## Returns
+You can return any item within 30 days of purchase for a full refund, as long as it's in original condition. Exchanges are free. Start a return at demostore.example.com/returns.
 
-Q: How do I contact support?
-A: You're chatting with our AI support right now! For complex issues, email support@example.com.
+## Payment Methods
+We accept Visa, Mastercard, American Express, PayPal, and Apple Pay. All transactions are encrypted and secure.
 
-Q: What payment methods do you accept?
-A: We accept Visa, Mastercard, American Express, PayPal, and Apple Pay.
+## Support Hours
+Monday to Friday, 9am - 6pm EST. For urgent issues outside business hours, email support@demostore.example.com.
+
+## Account
+Create a free account to track orders, save favorites, and get 10% off your first purchase. Sign up at demostore.example.com/signup.
+
+---
+TIP: Replace this file with your own FAQ and product information.
+Keep it conversational — write answers the way you'd explain things to a customer.
+One file per topic works well (faq.txt, shipping.md, pricing.txt, etc).

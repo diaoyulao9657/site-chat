@@ -24,10 +24,7 @@
     var suggestions = cfg.suggestions || [];
 
     var sid = localStorage.getItem("_sc_sid");
-    if (!sid) {
-      sid = "sc_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
-      localStorage.setItem("_sc_sid", sid);
-    }
+    if (!sid) { sid = "sc_" + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem("_sc_sid", sid); }
 
     var host = document.createElement("div");
     document.body.appendChild(host);
@@ -40,6 +37,9 @@
       sugHTML += '</div>';
     }
 
+    // bot avatar SVG (small robot icon)
+    var avatarSVG = '<svg class="sc-avatar" width="28" height="28" viewBox="0 0 24 24" fill="' + color + '"><circle cx="12" cy="12" r="11" fill="' + color + '" opacity=".12"/><circle cx="9" cy="10" r="1.5" fill="' + color + '"/><circle cx="15" cy="10" r="1.5" fill="' + color + '"/><path d="M8.5 14.5c0 0 1.5 2 3.5 2s3.5-2 3.5-2" fill="none" stroke="' + color + '" stroke-width="1.2" stroke-linecap="round"/></svg>';
+
     shadow.innerHTML = '<div class="sc-root">' +
       '<div class="sc-bubble" id="sc-bubble">' +
         '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
@@ -47,10 +47,7 @@
       '</div>' +
       '<div class="sc-panel" id="sc-panel">' +
         '<div class="sc-header">' +
-          '<div class="sc-header-left">' +
-            '<span class="sc-status" id="sc-status"></span>' +
-            '<span class="sc-title" id="sc-title-el">' + esc(title) + '</span>' +
-          '</div>' +
+          '<div class="sc-header-left"><span class="sc-status" id="sc-status"></span><span class="sc-title" id="sc-title-el">' + esc(title) + '</span></div>' +
           '<div class="sc-header-btns">' +
             '<button class="sc-hbtn" id="sc-new" aria-label="New conversation" title="New conversation"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>' +
             '<button class="sc-hbtn" id="sc-close" aria-label="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>' +
@@ -59,7 +56,7 @@
         '<div class="sc-messages" id="sc-messages"></div>' +
         sugHTML +
         '<div class="sc-footer">' +
-          '<input class="sc-input" id="sc-input" placeholder="' + esc(placeholder) + '" autocomplete="off" />' +
+          '<textarea class="sc-input" id="sc-input" placeholder="' + esc(placeholder) + '" rows="1" autocomplete="off"></textarea>' +
           '<button class="sc-send" id="sc-send" aria-label="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>' +
         '</div>' +
       '</div>' +
@@ -80,43 +77,36 @@
     var sugBox = shadow.getElementById("sc-suggestions");
     var statusEl = shadow.getElementById("sc-status");
     var titleEl = shadow.getElementById("sc-title-el");
-    var isOpen = false;
-    var busy = false;
+    var isOpen = false, busy = false;
 
-    // restore or show welcome
+    // auto-resize textarea
+    input.addEventListener("input", function () {
+      this.style.height = "auto";
+      this.style.height = Math.min(this.scrollHeight, 100) + "px";
+    });
+
+    // restore or welcome
     var saved = loadHistory();
     if (saved.length) {
-      saved.forEach(function(m) { appendMsgEl(m.text, m.type, m.html); });
-      var hasUserMsg = saved.some(function(m) { return m.type === "user"; });
-      if (sugBox && hasUserMsg) sugBox.style.display = "none";
+      saved.forEach(function(m) { appendMsgEl(m.text, m.type, m.html, m.time); });
+      if (sugBox && saved.some(function(m) { return m.type === "user"; })) sugBox.style.display = "none";
     } else {
-      appendMsgEl(welcome, "bot", false);
+      appendMsgEl(welcome, "bot", false, null);
     }
 
-    // health check
     setOnline(true);
     setInterval(function () {
       fetch(SERVER + "/health").then(function () { setOnline(true); }).catch(function () { setOnline(false); });
     }, 30000);
 
     function setOnline(on) { statusEl.className = "sc-status " + (on ? "sc-online" : "sc-offline"); }
-
-    function setTyping(on) {
-      titleEl.textContent = on ? "Typing..." : title;
-      if (on) titleEl.classList.add("sc-typing"); else titleEl.classList.remove("sc-typing");
-    }
-
-    function openPanel() {
-      isOpen = true; dot.classList.remove("sc-show");
-      panel.classList.add("sc-show"); bubble.classList.add("sc-hide");
-      input.focus(); scrollDown();
-    }
-    function closePanel() {
-      isOpen = false; panel.classList.remove("sc-show"); bubble.classList.remove("sc-hide");
-    }
+    function setTyping(on) { titleEl.textContent = on ? "Typing..." : title; titleEl.classList.toggle("sc-typing", on); }
+    function openPanel() { isOpen = true; dot.classList.remove("sc-show"); panel.classList.add("sc-show"); bubble.classList.add("sc-hide"); input.focus(); scrollDown(); }
+    function closePanel() { isOpen = false; panel.classList.remove("sc-show"); bubble.classList.remove("sc-hide"); }
     function markUnread() { if (!isOpen) dot.classList.add("sc-show"); }
     function nearBottom() { return msgList.scrollHeight - msgList.scrollTop - msgList.clientHeight < 60; }
     function scrollDown() { msgList.scrollTop = msgList.scrollHeight; }
+    function timeStr() { var d = new Date(); return d.getHours() + ":" + ("0" + d.getMinutes()).slice(-2); }
 
     bubble.onclick = openPanel;
     closeBtn.onclick = closePanel;
@@ -124,10 +114,9 @@
 
     newBtn.onclick = function () {
       sid = "sc_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
-      localStorage.setItem("_sc_sid", sid);
-      localStorage.removeItem("_sc_hist");
+      localStorage.setItem("_sc_sid", sid); localStorage.removeItem("_sc_hist");
       msgList.innerHTML = "";
-      appendMsgEl(welcome, "bot", false);
+      appendMsgEl(welcome, "bot", false, null);
       if (sugBox) sugBox.style.display = "";
     };
 
@@ -140,51 +129,71 @@
     sendBtn.onclick = send;
     input.onkeydown = function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
 
-    // copy handler (delegated)
+    // copy code blocks
     shadow.addEventListener("click", function (e) {
       var btn = e.target.closest ? e.target.closest(".sc-copy") : null;
       if (!btn) return;
-      var pre = btn.parentElement;
-      var code = pre.querySelector("code");
+      var code = btn.parentElement.querySelector("code");
       if (!code) return;
       navigator.clipboard.writeText(code.textContent).then(function () {
-        btn.textContent = "Copied!";
-        setTimeout(function () { btn.textContent = "Copy"; }, 1500);
+        btn.textContent = "Copied!"; setTimeout(function () { btn.textContent = "Copy"; }, 1500);
       });
     });
 
     function send() {
       var text = input.value.trim();
       if (!text || busy) return;
-      input.value = "";
-      appendMsgEl(text, "user", false);
-      saveMsg(text, "user", false);
+      input.value = ""; input.style.height = "auto";
+      var ts = timeStr();
+      appendMsgEl(text, "user", false, ts);
+      saveMsg(text, "user", false, ts);
       if (sugBox) sugBox.style.display = "none";
 
-      var botEl = appendMsgEl("", "bot", false);
-      botEl.innerHTML = '<span class="sc-dots"><span>.</span><span>.</span><span>.</span></span>';
+      var botEl = appendMsgEl("", "bot", false, null);
+      botEl.querySelector(".sc-content").innerHTML = '<span class="sc-dots"><span>.</span><span>.</span><span>.</span></span>';
       busy = true; sendBtn.disabled = true; input.disabled = true;
       setTyping(true);
 
       streamChat(text, botEl, function (reply) {
         busy = false; sendBtn.disabled = false; input.disabled = false;
         setTyping(false); input.focus();
-        if (reply) saveMsg(reply, "bot", true);
+        if (reply) {
+          var t = timeStr();
+          botEl.querySelector(".sc-time").textContent = t;
+          saveMsg(reply, "bot", true, t);
+        }
       });
     }
 
-    function appendMsgEl(text, type, isHtml) {
-      var div = document.createElement("div");
-      div.className = "sc-msg sc-" + type + " sc-fadein";
-      if (text) { if (isHtml) div.innerHTML = renderMd(text); else div.textContent = text; }
-      msgList.appendChild(div);
+    function appendMsgEl(text, type, isHtml, ts) {
+      var wrap = document.createElement("div");
+      wrap.className = "sc-row sc-row-" + type + " sc-fadein";
+
+      var avatar = "";
+      if (type === "bot") avatar = avatarSVG;
+
+      var timeHTML = ts ? '<span class="sc-time">' + esc(ts) + '</span>' : '<span class="sc-time"></span>';
+
+      wrap.innerHTML = (type === "bot" ? avatar : "") +
+        '<div class="sc-msg sc-' + type + '">' +
+          '<div class="sc-content"></div>' +
+          timeHTML +
+        '</div>';
+
+      var content = wrap.querySelector(".sc-content");
+      if (text) {
+        if (isHtml) content.innerHTML = renderMd(text);
+        else content.textContent = text;
+      }
+
+      msgList.appendChild(wrap);
       scrollDown();
-      return div;
+      return wrap;
     }
 
-    function saveMsg(text, type, isHtml) {
+    function saveMsg(text, type, isHtml, ts) {
       var hist = loadHistory();
-      hist.push({ text: text, type: type, html: isHtml });
+      hist.push({ text: text, type: type, html: isHtml, time: ts || "" });
       if (hist.length > 50) hist = hist.slice(-50);
       try { localStorage.setItem("_sc_hist", JSON.stringify(hist)); } catch (e) {}
     }
@@ -192,62 +201,55 @@
       try { var r = localStorage.getItem("_sc_hist"); return r ? JSON.parse(r) : []; } catch (e) { return []; }
     }
 
-    function streamChat(text, el, done) {
+    function streamChat(text, wrap, done) {
+      var el = wrap.querySelector(".sc-content");
       fetch(SERVER + "/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text, session_id: sid }),
       }).then(function (resp) {
-        if (resp.status === 429) { el.textContent = "Too many messages. Please wait a moment."; el.classList.add("sc-error"); done(null); return; }
+        if (resp.status === 429) { el.textContent = "Too many messages. Please wait."; el.closest(".sc-msg").classList.add("sc-error"); done(null); return; }
         if (!resp.ok) throw new Error("HTTP " + resp.status);
         var reader = resp.body.getReader(), decoder = new TextDecoder();
-        var buf = "", fullText = "", started = false, shouldScroll = true, rt = null;
+        var buf = "", full = "", started = false, shouldScroll = true, rt = null;
 
-        function render() { el.innerHTML = renderMd(fullText); if (shouldScroll) scrollDown(); markUnread(); }
+        function render() { el.innerHTML = renderMd(full); if (shouldScroll) scrollDown(); markUnread(); }
         function sched() { if (!rt) rt = setTimeout(function () { rt = null; render(); }, 80); }
 
         (function read() {
           reader.read().then(function (res) {
-            if (res.done) { if (rt) { clearTimeout(rt); rt = null; } if (fullText) render(); done(fullText); return; }
+            if (res.done) { if (rt) { clearTimeout(rt); rt = null; } if (full) render(); done(full); return; }
             buf += decoder.decode(res.value, { stream: true });
             var lines = buf.split("\n"); buf = lines.pop();
             for (var i = 0; i < lines.length; i++) {
               if (lines[i].indexOf("data: ") !== 0) continue;
               try { var d = JSON.parse(lines[i].slice(6)); } catch (e) { continue; }
-              if (d.t) { if (!started) { el.textContent = ""; started = true; } fullText += d.t; shouldScroll = nearBottom(); sched(); }
-              if (d.error) { if (rt) clearTimeout(rt); el.textContent = d.error; el.classList.add("sc-error"); done(null); return; }
-              if (d.done) { if (rt) clearTimeout(rt); if (fullText) render(); done(fullText); return; }
+              if (d.t) { if (!started) { el.textContent = ""; started = true; } full += d.t; shouldScroll = nearBottom(); sched(); }
+              if (d.error) { if (rt) clearTimeout(rt); el.textContent = d.error; el.closest(".sc-msg").classList.add("sc-error"); done(null); return; }
+              if (d.done) { if (rt) clearTimeout(rt); if (full) render(); done(full); return; }
             }
             read();
-          }).catch(function () { if (rt) clearTimeout(rt); el.textContent = "Connection lost."; el.classList.add("sc-error"); setOnline(false); done(null); });
+          }).catch(function () { if (rt) clearTimeout(rt); el.textContent = "Connection lost."; el.closest(".sc-msg").classList.add("sc-error"); setOnline(false); done(null); });
         })();
-      }).catch(function () { el.textContent = "Couldn't connect."; el.classList.add("sc-error"); setOnline(false); done(null); });
+      }).catch(function () { el.textContent = "Couldn't connect."; el.closest(".sc-msg").classList.add("sc-error"); setOnline(false); done(null); });
     }
 
     function renderMd(text) {
       var s = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      // code blocks with copy button
       s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, function (_, lang, code) {
         return '<pre class="sc-pre"><button class="sc-copy">Copy</button><code>' + code.replace(/\n$/, '') + '</code></pre>';
       });
       s = s.replace(/`([^`\n]+)`/g, '<code class="sc-ic">$1</code>');
       s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-      // bullet lists: lines starting with - or *
       s = s.replace(/(?:^|\n)([*\-] .+(?:\n[*\-] .+)*)/g, function (_, block) {
-        var items = block.split("\n").map(function (l) { return "<li>" + l.replace(/^[*\-] /, "") + "</li>"; });
-        return "<ul>" + items.join("") + "</ul>";
+        return "<ul>" + block.split("\n").map(function (l) { return "<li>" + l.replace(/^[*\-] /, "") + "</li>"; }).join("") + "</ul>";
       });
-      // numbered lists
       s = s.replace(/(?:^|\n)(\d+\. .+(?:\n\d+\. .+)*)/g, function (_, block) {
-        var items = block.split("\n").map(function (l) { return "<li>" + l.replace(/^\d+\. /, "") + "</li>"; });
-        return "<ol>" + items.join("") + "</ol>";
+        return "<ol>" + block.split("\n").map(function (l) { return "<li>" + l.replace(/^\d+\. /, "") + "</li>"; }).join("") + "</ol>";
       });
       s = s.replace(/(https?:\/\/[^\s<)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
-      // line breaks outside <pre>
       var parts = s.split(/(<pre[\s\S]*?<\/pre>|<ul>[\s\S]*?<\/ul>|<ol>[\s\S]*?<\/ol>)/);
-      for (var i = 0; i < parts.length; i++) {
-        if (!/^<(pre|ul|ol)/.test(parts[i])) parts[i] = parts[i].replace(/\n/g, '<br>');
-      }
+      for (var i = 0; i < parts.length; i++) { if (!/^<(pre|ul|ol)/.test(parts[i])) parts[i] = parts[i].replace(/\n/g, '<br>'); }
       return parts.join('');
     }
   }
@@ -266,7 +268,7 @@
     ".sc-dot.sc-show { display:block; animation:sc-pop .3s ease; }" +
     "@keyframes sc-pop { 0%{transform:scale(0)} 60%{transform:scale(1.2)} 100%{transform:scale(1)} }" +
 
-    ".sc-panel { position:fixed; bottom:88px; " + side + " width:370px; max-height:560px; height:calc(100vh - 120px); border-radius:14px; background:#fff; box-shadow:0 10px 40px rgba(0,0,0,.12); display:flex; flex-direction:column; z-index:99999; overflow:hidden; transform:translateY(16px) scale(.95); opacity:0; pointer-events:none; transition:transform .25s ease,opacity .2s ease; }" +
+    ".sc-panel { position:fixed; bottom:88px; " + side + " width:380px; max-height:580px; height:calc(100vh - 120px); border-radius:14px; background:#fff; box-shadow:0 10px 40px rgba(0,0,0,.12); display:flex; flex-direction:column; z-index:99999; overflow:hidden; transform:translateY(16px) scale(.95); opacity:0; pointer-events:none; transition:transform .25s ease,opacity .2s ease; }" +
     ".sc-panel.sc-show { transform:translateY(0) scale(1); opacity:1; pointer-events:auto; }" +
 
     ".sc-header { background:" + color + "; color:#fff; padding:14px 16px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }" +
@@ -281,12 +283,22 @@
     ".sc-hbtn { background:none; border:none; color:#fff; cursor:pointer; opacity:.7; padding:4px; display:flex; border-radius:4px; }" +
     ".sc-hbtn:hover { opacity:1; background:rgba(255,255,255,.15); }" +
 
-    ".sc-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }" +
-    ".sc-msg { max-width:85%; padding:10px 14px; border-radius:14px; word-wrap:break-word; }" +
+    ".sc-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }" +
+
+    // message rows
+    ".sc-row { display:flex; gap:8px; max-width:90%; }" +
+    ".sc-row-user { align-self:flex-end; flex-direction:row-reverse; }" +
+    ".sc-row-bot { align-self:flex-start; align-items:flex-start; }" +
+    ".sc-avatar { flex-shrink:0; margin-top:2px; }" +
     ".sc-fadein { animation:sc-slidein .25s ease; }" +
     "@keyframes sc-slidein { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }" +
-    ".sc-user { align-self:flex-end; background:" + color + "; color:#fff; border-bottom-right-radius:4px; white-space:pre-wrap; }" +
-    ".sc-bot { align-self:flex-start; background:#f1f3f5; color:#1a1a1a; border-bottom-left-radius:4px; }" +
+
+    ".sc-msg { padding:10px 14px; border-radius:14px; word-wrap:break-word; min-width:0; }" +
+    ".sc-user { background:" + color + "; color:#fff; border-bottom-right-radius:4px; white-space:pre-wrap; }" +
+    ".sc-bot { background:#f1f3f5; color:#1a1a1a; border-bottom-left-radius:4px; }" +
+    ".sc-time { display:block; font-size:11px; opacity:.45; margin-top:4px; }" +
+    ".sc-row-user .sc-time { text-align:right; }" +
+
     ".sc-bot strong { font-weight:600; }" +
     ".sc-bot em { font-style:italic; }" +
     ".sc-bot a { color:" + color + "; text-decoration:underline; }" +
@@ -304,15 +316,14 @@
     ".sc-sug:hover { border-color:" + color + "; color:" + color + "; }" +
 
     ".sc-dots span { animation:sc-blink 1.4s infinite both; font-size:20px; line-height:1; letter-spacing:2px; }" +
-    ".sc-dots span:nth-child(2){animation-delay:.2s}" +
-    ".sc-dots span:nth-child(3){animation-delay:.4s}" +
+    ".sc-dots span:nth-child(2){animation-delay:.2s}.sc-dots span:nth-child(3){animation-delay:.4s}" +
     "@keyframes sc-blink { 0%,80%,100%{opacity:.25} 40%{opacity:1} }" +
 
-    ".sc-footer { padding:10px 12px; border-top:1px solid #eee; display:flex; gap:8px; flex-shrink:0; }" +
-    ".sc-input { flex:1; border:1px solid #ddd; border-radius:10px; padding:10px 14px; font-size:14px; outline:none; font-family:inherit; background:#fafafa; transition:border-color .2s,background .2s; }" +
+    ".sc-footer { padding:10px 12px; border-top:1px solid #eee; display:flex; gap:8px; flex-shrink:0; align-items:flex-end; }" +
+    ".sc-input { flex:1; border:1px solid #ddd; border-radius:10px; padding:10px 14px; font-size:14px; outline:none; font-family:inherit; background:#fafafa; resize:none; overflow-y:auto; max-height:100px; line-height:1.4; transition:border-color .2s,background .2s; }" +
     ".sc-input:focus { border-color:" + color + "; background:#fff; }" +
     ".sc-input:disabled { opacity:.6; }" +
-    ".sc-send { background:" + color + "; color:#fff; border:none; border-radius:10px; width:42px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:opacity .2s; }" +
+    ".sc-send { background:" + color + "; color:#fff; border:none; border-radius:10px; width:42px; height:42px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:opacity .2s; flex-shrink:0; }" +
     ".sc-send:hover { opacity:.85; }" +
     ".sc-send:disabled { opacity:.4; cursor:default; }" +
 
