@@ -28,7 +28,9 @@ WIDGET_TITLE = os.getenv("WIDGET_TITLE", "Support")
 WIDGET_WELCOME = os.getenv("WIDGET_WELCOME", "Hi! How can I help?")
 WIDGET_PLACEHOLDER = os.getenv("WIDGET_PLACEHOLDER", "Type a message...")
 WIDGET_POSITION = os.getenv("WIDGET_POSITION", "bottom-right")
-WIDGET_SUGGESTIONS = os.getenv("WIDGET_SUGGESTIONS", "")  # comma-separated quick replies
+WIDGET_SUGGESTIONS = os.getenv("WIDGET_SUGGESTIONS", "")
+WIDGET_THEME = os.getenv("WIDGET_THEME", "auto")  # auto, light, dark
+WIDGET_POWERED_BY = os.getenv("WIDGET_POWERED_BY", "")  # e.g. "Your Brand|https://yourbrand.com"
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*")
 
@@ -119,6 +121,10 @@ async def serve_widget():
 @app.get("/config")
 async def get_config():
     suggestions = [s.strip() for s in WIDGET_SUGGESTIONS.split(",") if s.strip()] if WIDGET_SUGGESTIONS else []
+    powered = {}
+    if WIDGET_POWERED_BY and "|" in WIDGET_POWERED_BY:
+        parts = WIDGET_POWERED_BY.split("|", 1)
+        powered = {"text": parts[0].strip(), "url": parts[1].strip()}
     return {
         "color": WIDGET_COLOR,
         "title": WIDGET_TITLE,
@@ -126,6 +132,8 @@ async def get_config():
         "placeholder": WIDGET_PLACEHOLDER,
         "position": WIDGET_POSITION,
         "suggestions": suggestions,
+        "theme": WIDGET_THEME,
+        "poweredBy": powered,
     }
 
 
@@ -188,6 +196,22 @@ async def chat(request: Request):
             hist.append({"role": "assistant", "content": full})
 
     return StreamingResponse(stream(), media_type="text/event-stream")
+
+
+@app.post("/feedback")
+async def feedback(request: Request):
+    """Log user feedback on bot responses."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid json"}, status_code=400)
+    vote = body.get("vote")  # "up" or "down"
+    msg = body.get("message", "")[:500]
+    session_id = body.get("session_id", "")
+    if vote not in ("up", "down"):
+        return JSONResponse({"error": "vote must be 'up' or 'down'"}, status_code=400)
+    log.info("feedback: %s | session=%s | msg=%s", vote, session_id[:20], msg[:80])
+    return {"status": "ok"}
 
 
 @app.post("/reload")
