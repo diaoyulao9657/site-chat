@@ -190,6 +190,16 @@ async def chat(request: Request):
     return StreamingResponse(stream(), media_type="text/event-stream")
 
 
+@app.post("/reload")
+async def reload_kb(request: Request):
+    """Reload knowledge base files without restarting."""
+    global knowledge, system_prompt
+    knowledge = load_knowledge()
+    system_prompt = build_system_prompt()
+    log.info("knowledge base reloaded — %d chars", len(knowledge))
+    return {"status": "ok", "knowledge_chars": len(knowledge)}
+
+
 @app.get("/demo")
 async def demo():
     path = Path(__file__).parent / "demo.html"
