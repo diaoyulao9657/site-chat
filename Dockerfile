@@ -3,6 +3,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY server.py .
+COPY demo.html .
 COPY static/ static/
 COPY data/ data/
 EXPOSE 8080

@@ -5,6 +5,7 @@ import uuid
 import time
 import logging
 from pathlib import Path
+from collections import defaultdict
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
@@ -20,6 +21,7 @@ MODEL = os.getenv("MODEL", "gpt-4o-mini")
 SYSTEM_PROMPT = os.getenv("SYSTEM_PROMPT", "You are a friendly support agent. Answer questions based on the knowledge base provided. If you don't know, say so honestly.")
 MAX_HISTORY = int(os.getenv("MAX_HISTORY", "10"))
 MAX_MSG_LEN = int(os.getenv("MAX_MSG_LEN", "2000"))
+RATE_LIMIT = int(os.getenv("RATE_LIMIT", "20"))  # requests per minute per IP
 
 WIDGET_COLOR = os.getenv("WIDGET_COLOR", "#4F46E5")
 WIDGET_TITLE = os.getenv("WIDGET_TITLE", "Support")
@@ -71,9 +73,22 @@ client = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL)
 
 # per-session conversation history
 sessions = {}
-# track last activity for cleanup
 session_ts = {}
-SESSION_TTL = 3600  # 1 hour
+SESSION_TTL = 3600
+
+# rate limiter: ip -> list of timestamps
+_hits = defaultdict(list)
+
+
+def check_rate(ip):
+    now = time.time()
+    window = _hits[ip]
+    # drop entries older than 60s
+    _hits[ip] = [t for t in window if now - t < 60]
+    if len(_hits[ip]) >= RATE_LIMIT:
+        return False
+    _hits[ip].append(now)
+    return True
 
 
 def cleanup_sessions():
@@ -82,6 +97,10 @@ def cleanup_sessions():
     for sid in stale:
         sessions.pop(sid, None)
         session_ts.pop(sid, None)
+    # also clean rate limiter
+    dead = [ip for ip, hits in _hits.items() if not hits or now - hits[-1] > 120]
+    for ip in dead:
+        del _hits[ip]
 
 
 @app.get("/widget.js")
@@ -109,6 +128,10 @@ async def get_config():
 
 @app.post("/chat")
 async def chat(request: Request):
+    ip = request.client.host if request.client else "unknown"
+    if not check_rate(ip):
+        return JSONResponse({"error": "Too many requests. Please slow down."}, status_code=429)
+
     try:
         body = await request.json()
     except Exception:
@@ -164,6 +187,14 @@ async def chat(request: Request):
     return StreamingResponse(stream(), media_type="text/event-stream")
 
 
+@app.get("/demo")
+async def demo():
+    path = Path(__file__).parent / "demo.html"
+    if not path.exists():
+        return Response("demo.html not found", status_code=404)
+    return Response(content=path.read_text(encoding="utf-8"), media_type="text/html")
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "model": MODEL, "knowledge_loaded": bool(knowledge)}
@@ -183,5 +214,7 @@ if __name__ == "__main__":
 
     import uvicorn
     port = int(os.getenv("PORT", "8080"))
+    if len(knowledge) > 100000:
+        log.warning("knowledge base is %d chars — consider trimming for faster/cheaper responses", len(knowledge))
     log.info("starting on port %d — model=%s, knowledge=%d chars", port, MODEL, len(knowledge))
     uvicorn.run(app, host="0.0.0.0", port=port)
