@@ -105,7 +105,9 @@
       for (var j = 0; j < saved.length; j++) {
         appendMsgEl(saved[j].text, saved[j].type, saved[j].html);
       }
-      if (sugBox) sugBox.style.display = "none";
+      // hide suggestions only if user already chatted
+      var hasUserMsg = saved.some(function(m) { return m.type === "user"; });
+      if (sugBox && hasUserMsg) sugBox.style.display = "none";
     } else {
       appendMsgEl(welcome, "bot", false);
     }

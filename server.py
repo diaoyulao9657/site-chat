@@ -112,7 +112,7 @@ async def serve_widget():
     return Response(
         content=path.read_text(encoding="utf-8"),
         media_type="application/javascript",
-        headers={"Cache-Control": "public, max-age=3600"},
+        headers={"Cache-Control": "public, max-age=300"},
     )
 
 
