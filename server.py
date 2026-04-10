@@ -28,6 +28,7 @@ WIDGET_TITLE = os.getenv("WIDGET_TITLE", "Support")
 WIDGET_WELCOME = os.getenv("WIDGET_WELCOME", "Hi! How can I help?")
 WIDGET_PLACEHOLDER = os.getenv("WIDGET_PLACEHOLDER", "Type a message...")
 WIDGET_POSITION = os.getenv("WIDGET_POSITION", "bottom-right")
+WIDGET_SUGGESTIONS = os.getenv("WIDGET_SUGGESTIONS", "")  # comma-separated quick replies
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*")
 
@@ -117,12 +118,14 @@ async def serve_widget():
 
 @app.get("/config")
 async def get_config():
+    suggestions = [s.strip() for s in WIDGET_SUGGESTIONS.split(",") if s.strip()] if WIDGET_SUGGESTIONS else []
     return {
         "color": WIDGET_COLOR,
         "title": WIDGET_TITLE,
         "welcome": WIDGET_WELCOME,
         "placeholder": WIDGET_PLACEHOLDER,
         "position": WIDGET_POSITION,
+        "suggestions": suggestions,
     }
 
 
